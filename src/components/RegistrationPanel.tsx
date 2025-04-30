@@ -1,8 +1,11 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Mail } from 'lucide-react';
+import RegistrationForm from './RegistrationForm';
 
 const RegistrationPanel = () => {
+  const [formType, setFormType] = useState<'default' | 'create' | 'join'>('default');
+
   return (
     <section id="register" className="py-20 bg-gradient-to-b from-dark to-dark/90 relative overflow-hidden">
       {/* Background circuit pattern */}
@@ -20,109 +23,49 @@ const RegistrationPanel = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 max-w-6xl mx-auto">
-          <div className="card-neon-blue p-8">
-            <h3 className="text-2xl font-orbitron mb-6 text-glow-blue">Registration Details</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-orbitron text-lg mb-2">Entry Fee</h4>
-                <p className="text-light/80">
-                  <span className="text-neon-blue font-medium">$50</span> per team (up to 3 members)
-                </p>
-                <p className="text-light/80 mt-1">
-                  <span className="text-neon-green font-medium">Early bird:</span> $35 (before February 1st)
-                </p>
-              </div>
-              
-              <div>
-                <h4 className="font-orbitron text-lg mb-2">Registration Includes</h4>
-                <ul className="text-light/80 space-y-2">
-                  {[
-                    "Access to both competition rounds",
-                    "Event t-shirts for all team members",
-                    "Meals during the event",
-                    "Networking opportunities with industry experts",
-                    "Certificate of participation"
-                  ].map((item, index) => (
-                    <li key={index} className="flex items-start">
-                      <span className="text-neon-blue mr-2">›</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-orbitron text-lg mb-2">Payment Methods</h4>
-                <p className="text-light/80">Credit/debit cards, PayPal, and bank transfers accepted.</p>
-              </div>
+        {formType === 'default' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl mx-auto">
+            <div className="card-neon-blue p-8 flex flex-col items-center justify-center">
+              <h3 className="text-2xl font-orbitron mb-6 text-glow-blue">Create a Team</h3>
+              <p className="text-light/80 text-center mb-6">
+                Form your own team and lead them to victory. Assemble up to 3 brilliant minds.
+              </p>
+              <button 
+                onClick={() => setFormType('create')}
+                className="btn-neon-blue glitch-effect px-8 py-3 rounded-md font-orbitron text-lg"
+                data-text="Create Team"
+              >
+                Create Team
+              </button>
+            </div>
+
+            <div className="card-neon-green p-8 flex flex-col items-center justify-center">
+              <h3 className="text-2xl font-orbitron mb-6 text-glow-green">Join Existing Team</h3>
+              <p className="text-light/80 text-center mb-6">
+                Have a team code? Join your teammates and prepare for the challenge.
+              </p>
+              <button 
+                onClick={() => setFormType('join')}
+                className="btn-neon-green glitch-effect px-8 py-3 rounded-md font-orbitron text-lg"
+                data-text="Join Team"
+              >
+                Join Team
+              </button>
             </div>
           </div>
-
-          <div className="card-neon-green p-8">
-            <h3 className="text-2xl font-orbitron mb-6 text-glow-green">Sign Up Form</h3>
-            
-            <form className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="team-name" className="block font-orbitron mb-1 text-light">Team Name</label>
-                  <input 
-                    type="text" 
-                    id="team-name"
-                    className="w-full bg-dark/50 border border-neon-green border-opacity-50 rounded-md px-4 py-2 text-light focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-opacity-50 focus:border-transparent"
-                    placeholder="Enter your team name"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="email" className="block font-orbitron mb-1 text-light">Email Address</label>
-                  <input 
-                    type="email" 
-                    id="email"
-                    className="w-full bg-dark/50 border border-neon-green border-opacity-50 rounded-md px-4 py-2 text-light focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-opacity-50 focus:border-transparent"
-                    placeholder="Enter your email"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="participants" className="block font-orbitron mb-1 text-light">Number of Participants</label>
-                  <select 
-                    id="participants"
-                    className="w-full bg-dark/50 border border-neon-green border-opacity-50 rounded-md px-4 py-2 text-light focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-opacity-50 focus:border-transparent"
-                  >
-                    <option value="1">1 (Individual)</option>
-                    <option value="2">2 Team Members</option>
-                    <option value="3">3 Team Members</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    id="terms" 
-                    className="w-5 h-5 bg-dark/50 border border-neon-green border-opacity-50 rounded checked:bg-neon-green focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-opacity-50"
-                  />
-                  <label htmlFor="terms" className="ml-2 text-sm text-light/80">
-                    I agree to the <a href="#" className="text-neon-green hover:underline">terms and conditions</a>
-                  </label>
-                </div>
-              </div>
-              
+        ) : (
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-center mb-8">
               <button 
-                type="submit"
-                className="btn-neon-green w-full py-3 rounded-md font-orbitron text-lg flex items-center justify-center gap-2"
+                onClick={() => setFormType('default')}
+                className="btn-neon-purple px-6 py-2 rounded-md font-orbitron text-sm flex items-center gap-2"
               >
-                <Mail className="w-5 h-5" />
-                Complete Registration
+                ← Back to Options
               </button>
-              
-              <p className="text-xs text-center text-light/70 mt-4">
-                You will receive a confirmation email with payment instructions.
-              </p>
-            </form>
+            </div>
+            <RegistrationForm formType={formType} />
           </div>
-        </div>
+        )}
       </div>
     </section>
   );
