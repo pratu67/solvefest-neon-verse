@@ -43,31 +43,30 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
 
   if (formType === 'create') {
     return (
-      <div className="card-neon-blue p-8">
-        <h3 className="text-2xl font-orbitron mb-6 text-glow-blue text-center">Create a New Team</h3>
+      <div className="card-neon-blue p-5 md:p-8">
+        <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-blue text-center">Create a New Team</h3>
         
         {teamCode ? (
-          <div className="text-center py-6 animate-fade-in">
-            <div className="mb-8">
-              <h4 className="text-xl font-orbitron mb-4 text-neon-green">Team Created Successfully!</h4>
-              <p className="text-light/80 mb-4">Share this code with your teammates:</p>
-              <div className="bg-dark/50 border border-neon-green border-opacity-50 rounded-md p-4 mb-4">
-                <p className="font-orbitron text-2xl text-glow-green tracking-wider">{teamCode}</p>
+          <div className="text-center py-4 md:py-6 animate-fade-in">
+            <div className="mb-6 md:mb-8">
+              <h4 className="text-lg md:text-xl font-orbitron mb-3 md:mb-4 text-neon-green">Team Created Successfully!</h4>
+              <p className="text-light/80 mb-3 md:mb-4 text-sm md:text-base">Share this code with your teammates:</p>
+              <div className="bg-dark/50 border border-neon-green border-opacity-50 rounded-md p-3 md:p-4 mb-3 md:mb-4">
+                <p className="font-orbitron text-xl md:text-2xl text-glow-green tracking-wider">{teamCode}</p>
               </div>
-              <p className="text-light/80 text-sm">Keep this code safe. Your teammates will need it to join your team.</p>
+              <p className="text-light/80 text-xs md:text-sm">Keep this code safe. Your teammates will need it to join your team.</p>
             </div>
             <Button 
               onClick={() => setTeamCode(null)} 
               variant="outline" 
-              className="btn-neon-green glitch-effect"
-              data-text="Create Another Team"
+              className="btn-neon-green"
             >
               Create Another Team
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-2">
                 <Label htmlFor="team-name" className="font-orbitron text-light">Team Name</Label>
                 <Input
@@ -151,17 +150,17 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
               </div>
             </div>
             
-            <div className="pt-4">
+            <div className="pt-3 md:pt-4">
               <Button 
                 type="submit" 
                 disabled={isSubmitting}
-                className="w-full btn-neon-blue glitch-effect py-6 font-orbitron text-lg flex items-center justify-center gap-2"
-                data-text="Create Team"
+                variant="outline"
+                className="w-full btn-neon-blue py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
               >
                 {isSubmitting ? 'Processing...' : (
                   <>
                     Create Team
-                    <ChevronRight className="h-5 w-5" />
+                    <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                   </>
                 )}
               </Button>
@@ -174,11 +173,11 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
   
   // Join Team form
   return (
-    <div className="card-neon-green p-8">
-      <h3 className="text-2xl font-orbitron mb-6 text-glow-green text-center">Join Existing Team</h3>
+    <div className="card-neon-green p-5 md:p-8">
+      <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-green text-center">Join Existing Team</h3>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="space-y-2">
             <Label htmlFor="participant-name" className="font-orbitron text-light">Participant Name</Label>
             <Input
@@ -231,17 +230,17 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
           </div>
         </div>
         
-        <div className="pt-4">
+        <div className="pt-3 md:pt-4">
           <Button 
             type="submit" 
             disabled={isSubmitting}
-            className="w-full btn-neon-green glitch-effect py-6 font-orbitron text-lg flex items-center justify-center gap-2"
-            data-text="Join Team"
+            variant="outline"
+            className="w-full btn-neon-green py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
           >
             {isSubmitting ? 'Processing...' : (
               <>
                 Join Team
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
               </>
             )}
           </Button>
