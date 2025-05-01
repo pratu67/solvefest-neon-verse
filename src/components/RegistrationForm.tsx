@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronRight, Info, Mail, Check, AlertCircle, QrCode, Smartphone } from 'lucide-react';
+import { ChevronRight, Info, Mail, Check, AlertCircle, QrCode, Smartphone, CreditCard, Copy } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,6 +17,12 @@ import {
   checkTeamCode,
   sendEmail 
 } from '@/services/mockDatabase';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface RegistrationFormProps {
   formType: 'create' | 'join';
@@ -30,6 +36,9 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
   const [validationState, setValidationState] = useState({ isValid: false, message: '', team: null });
   const [joinTeamCode, setJoinTeamCode] = useState('');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -71,46 +80,173 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
     setValidationState(result as any); // TypeScript type coercion
   };
 
+  // Create confetti effect
+  const createConfetti = () => {
+    setShowConfetti(true);
+    const confettiContainer = document.getElementById('confetti-container');
+    if (!confettiContainer) return;
+    
+    const colors = ['#FF1E1E', '#ffffff', '#444444'];
+    
+    for (let i = 0; i < 100; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = `${Math.random() * 100}%`;
+      confetti.style.top = '0';
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.width = `${Math.random() * 8 + 2}px`;
+      confetti.style.height = `${Math.random() * 6 + 2}px`;
+      confetti.style.opacity = `${Math.random() * 0.8 + 0.2}`;
+      confetti.style.animationDelay = `${Math.random() * 2}s`;
+      confetti.style.animationDuration = `${Math.random() * 3 + 2}s`;
+      confettiContainer.appendChild(confetti);
+    }
+    
+    // Clean up confetti after animation completes
+    setTimeout(() => {
+      setShowConfetti(false);
+      if (confettiContainer) {
+        confettiContainer.innerHTML = '';
+      }
+    }, 5000);
+  };
+
+  // Razorpay integration
+  const initializeRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => {
+        resolve(true);
+      };
+      script.onerror = () => {
+        resolve(false);
+      };
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayment = async () => {
+    setIsProcessingPayment(true);
+    
+    const res = await initializeRazorpay();
+    
+    if (!res) {
+      toast({
+        title: "Payment Failed",
+        description: "Razorpay SDK failed to load. Check your internet connection.",
+        variant: "destructive",
+      });
+      setIsProcessingPayment(false);
+      return;
+    }
+
+    // Create order - would be server-side in production
+    const paymentData = {
+      amount: 5000, // in paise (₹50)
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+      notes: {
+        teamName: formData.teamName,
+        email: formData.email
+      }
+    };
+
+    // Simulating order creation response
+    const orderResponse = {
+      id: `order_${Date.now()}`,
+      amount: paymentData.amount,
+      currency: paymentData.currency
+    };
+    
+    // Configure Razorpay options
+    const options = {
+      key: "rzp_test_your_key_here", // Replace with your actual test key in production
+      amount: orderResponse.amount,
+      currency: orderResponse.currency,
+      name: "SolveFest 2025",
+      description: "Team Registration Fee",
+      order_id: orderResponse.id,
+      handler: function (response: any) {
+        // Handle successful payment
+        const { razorpay_payment_id } = response;
+        setPaymentId(razorpay_payment_id);
+        handleRegistrationAfterPayment(razorpay_payment_id);
+      },
+      prefill: {
+        name: formData.leaderName,
+        email: formData.email,
+        contact: formData.phone
+      },
+      theme: {
+        color: "#FF1E1E"
+      },
+      modal: {
+        ondismiss: function() {
+          setIsProcessingPayment(false);
+        }
+      }
+    };
+
+    // For demo purposes, we'll simulate a successful payment
+    setTimeout(() => {
+      const mockPaymentId = `pay_${Date.now()}`;
+      setPaymentId(mockPaymentId);
+      handleRegistrationAfterPayment(mockPaymentId);
+    }, 2000);
+    
+    // In actual implementation, you would open Razorpay checkout:
+    // const paymentObject = new window.Razorpay(options);
+    // paymentObject.open();
+  };
+
+  const handleRegistrationAfterPayment = (paymentId: string) => {
+    // Create team using mock database with payment ID
+    const newTeam = createTeam({
+      teamName: formData.teamName,
+      leaderName: formData.leaderName,
+      leaderEmail: formData.email,
+      leaderPhone: formData.phone,
+      college: formData.college,
+      paymentId: paymentId
+    });
+    
+    // Set the generated team code
+    setTeamCode(newTeam.teamCode);
+    
+    // Simulate email sending
+    sendEmail(
+      formData.email,
+      'Team Registration Successful',
+      `Your team ${formData.teamName} has been registered successfully. Your team code is ${newTeam.teamCode}.`
+    );
+    
+    // Show success animation with confetti
+    setShowSuccessAnimation(true);
+    createConfetti();
+    
+    toast({
+      title: "Registration Successful!",
+      description: `Your team code is ${newTeam.teamCode}. A confirmation email has been sent.`,
+    });
+    
+    // Notify parent component
+    if (onRegistrationComplete) onRegistrationComplete();
+    
+    setIsProcessingPayment(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
       if (formType === 'create') {
-        // Create team using mock database
-        const newTeam = createTeam({
-          teamName: formData.teamName,
-          leaderName: formData.leaderName,
-          leaderEmail: formData.email,
-          leaderPhone: formData.phone,
-          college: formData.college,
-          paymentProof: 'payment-screenshot.jpg' // In a real app, this would be the uploaded file
-        });
-        
-        // Set the generated team code
-        setTeamCode(newTeam.teamCode);
-        
-        // Simulate email sending
-        await sendEmail(
-          formData.email,
-          'Team Registration Successful',
-          `Your team ${formData.teamName} has been registered successfully. Your team code is ${newTeam.teamCode}.`
-        );
-        
-        // Show success animation
-        setShowSuccessAnimation(true);
-        setTimeout(() => setShowSuccessAnimation(false), 1500);
-        
-        toast({
-          title: "Team Created Successfully!",
-          description: `Your team code is ${newTeam.teamCode}. A confirmation email has been sent.`,
-        });
-        
-        // Notify parent component
-        if (onRegistrationComplete) onRegistrationComplete();
-        
+        // For create team, initiate payment first
+        handlePayment();
       } else if (formType === 'join' && validationState.isValid) {
-        // Join team using mock database
+        // Join team flow - no payment needed
         const result = joinTeam(joinTeamCode, {
           name: formData.participantName,
           email: formData.participantEmail,
@@ -137,7 +273,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
           
           // Show success animation
           setShowSuccessAnimation(true);
-          setTimeout(() => setShowSuccessAnimation(false), 1500);
+          createConfetti();
           
           toast({
             title: "Team Joined Successfully!",
@@ -168,268 +304,332 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      if (formType !== 'create') {
+        setIsSubmitting(false);
+      }
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Team code copied to clipboard",
+    });
+  };
+
+  // Component for Create Team Form
   if (formType === 'create') {
     return (
-      <div className="card-neon-blue p-5 md:p-8 relative overflow-hidden">
+      <div className="card-hacker relative overflow-hidden">
+        {/* Confetti container */}
+        <div id="confetti-container" className="absolute inset-0 pointer-events-none z-50"></div>
+        
         {showSuccessAnimation && (
-          <div className="absolute inset-0 flex items-center justify-center bg-dark/80 z-20 animate-fade-in">
-            <div className="text-center">
-              <Check className="h-16 w-16 text-neon-green mx-auto mb-4" />
-              <p className="font-orbitron text-glow-green text-xl">Team Created!</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-hacker-bg/90 z-20 animate-fade-in">
+            <div className="text-center p-8 max-w-md">
+              <div className="terminal-window mb-6">
+                <div className="terminal-header">
+                  <span className="font-orbitron text-neon-red">Registration Complete</span>
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  </div>
+                </div>
+                <div className="terminal-text space-y-2">
+                  <div>$ Registration complete</div>
+                  <div>$ Processing payment...OK</div>
+                  <div>$ Generating team code...OK</div>
+                  <div>$ Sending email notification...OK</div>
+                  <div className="text-neon-red font-bold">$ ACCESS GRANTED</div>
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-orbitron mb-4 text-glow-red">Welcome to SolveFest</h3>
+              <p className="text-hacker-text mb-6">Your team has been successfully registered!</p>
+              
+              <div className="bg-hacker-dark border border-neon-red border-opacity-50 rounded-md p-4 mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm text-hacker-text/80">Your unique team code:</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => copyToClipboard(teamCode || '')} 
+                    className="h-7 px-2 text-neon-red hover:text-neon-red hover:bg-hacker-bg"
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Copy</span>
+                  </Button>
+                </div>
+                <p className="font-orbitron text-xl text-glow-red tracking-wider text-center">{teamCode}</p>
+              </div>
+              
+              <p className="text-xs text-hacker-text/70 mb-6">
+                Share this code with your teammates so they can join your team.
+                You'll also receive all details via email.
+              </p>
+              
+              <Button 
+                onClick={() => {
+                  setTeamCode(null);
+                  setShowSuccessAnimation(false);
+                  setPaymentId(null);
+                  setFormData({
+                    teamName: '',
+                    leaderName: '',
+                    email: '',
+                    phone: '',
+                    college: '',
+                    memberCount: '',
+                    participantName: '',
+                    participantEmail: '',
+                    participantPhone: '',
+                    participantCollege: '',
+                  });
+                }} 
+                className="btn-glitch w-full py-3 font-orbitron text-lg"
+              >
+                Register Another Team
+              </Button>
             </div>
           </div>
         )}
       
-        <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-blue text-center">Create a New Team</h3>
+        <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-red text-center">Create a New Team</h3>
         
-        {teamCode ? (
-          <div className="text-center py-4 md:py-6 animate-fade-in">
-            <div className="mb-6 md:mb-8">
-              <h4 className="text-lg md:text-xl font-orbitron mb-3 md:mb-4 text-neon-green">Team Created Successfully!</h4>
-              <p className="text-light/80 mb-3 md:mb-4 text-sm md:text-base">Share this code with your teammates:</p>
-              <div className="bg-dark/50 border border-neon-green border-opacity-50 rounded-md p-3 md:p-4 mb-3 md:mb-4">
-                <p className="font-orbitron text-xl md:text-2xl text-glow-green tracking-wider">{teamCode}</p>
+        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="teamName" className="font-orbitron text-hacker-text">Team Name</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-neon-red cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-hacker-dark border-neon-red text-hacker-text">
+                      <p className="text-xs">Choose a creative name for your team</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <p className="text-light/80 text-xs md:text-sm">Keep this code safe. Your teammates will need it to join your team.</p>
-              
-              <Alert className="mt-6 bg-dark/70 border-neon-blue">
-                <Mail className="h-5 w-5 text-neon-blue" />
-                <AlertTitle className="text-light">Check Your Email</AlertTitle>
-                <AlertDescription className="text-light/80">
-                  A confirmation email has been sent with your team details and next steps.
-                </AlertDescription>
-              </Alert>
-            </div>
-            <Button 
-              onClick={() => setTeamCode(null)} 
-              variant="outline" 
-              className="bg-neon-green hover:bg-neon-green/80 text-dark border-none transition-colors duration-300"
-            >
-              Create Another Team
-            </Button>
-          </div>
-        ) : (
-          <>
-            {/* Payment QR code section */}
-            <div className="mb-6 p-4 border border-neon-blue border-opacity-40 rounded-lg bg-dark/30">
-              <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
-                <div className="bg-white p-3 rounded-md">
-                  <div className="w-24 h-24 md:w-28 md:h-28 relative">
-                    <QrCode className="w-full h-full text-dark" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs text-dark font-bold">QR CODE</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex-1 text-center md:text-left">
-                  <h4 className="font-orbitron text-neon-blue mb-2">Payment Details</h4>
-                  <p className="text-light/70 text-sm mb-1">Registration Fee: ₹300 per team</p>
-                  <p className="text-light/70 text-sm mb-3">UPI ID: solvefest@okaxis</p>
-                  <div className="flex items-center justify-center md:justify-start gap-1 text-xs text-neon-green">
-                    <Info className="h-3 w-3" />
-                    <span>Only team leader needs to pay</span>
-                  </div>
-                </div>
-              </div>
+              <Input
+                id="teamName"
+                placeholder="Enter your team name"
+                required
+                value={formData.teamName}
+                onChange={handleInputChange}
+                className="input-hacker"
+              />
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="teamName" className="font-orbitron text-light">Team Name</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-neon-blue cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-dark/90 border-neon-blue text-light">
-                          <p className="text-xs">Choose a creative name for your team</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="teamName"
-                    placeholder="Enter your team name"
-                    required
-                    value={formData.teamName}
-                    onChange={handleInputChange}
-                    className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="leaderName" className="font-orbitron text-light">Team Leader Name</Label>
-                  <Input
-                    id="leaderName"
-                    placeholder="Enter your full name"
-                    required
-                    value={formData.leaderName}
-                    onChange={handleInputChange}
-                    className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="email" className="font-orbitron text-light">Email</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-neon-blue cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-dark/90 border-neon-blue text-light">
-                          <p className="text-xs">Confirmation will be sent to this email</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="font-orbitron text-light">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    placeholder="Enter your phone number"
-                    required
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="college" className="font-orbitron text-light">Select College</Label>
-                  <Select onValueChange={(value) => handleSelectChange('college', value)}>
-                    <SelectTrigger className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue">
-                      <SelectValue placeholder="Select your college" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mit">MIT</SelectItem>
-                      <SelectItem value="stanford">Stanford University</SelectItem>
-                      <SelectItem value="harvard">Harvard University</SelectItem>
-                      <SelectItem value="caltech">Caltech</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="members" className="font-orbitron text-light">Number of Members</Label>
-                  <Select onValueChange={(value) => handleSelectChange('memberCount', value)}>
-                    <SelectTrigger className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue">
-                      <SelectValue placeholder="Select team size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2">2 Members</SelectItem>
-                      <SelectItem value="3">3 Members</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="payment" className="font-orbitron text-light">Upload Payment Screenshot</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-neon-blue cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-dark/90 border-neon-blue text-light">
-                          <p className="text-xs">Upload a screenshot of your payment receipt</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="payment"
-                    type="file"
-                    accept="image/*"
-                    required
-                    className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue file:bg-neon-blue file:text-dark file:border-0 file:rounded file:px-2 file:py-1 file:mr-2 file:font-orbitron"
-                  />
-                  <p className="text-xs text-light/60">Accepted formats: JPG, PNG, PDF. Max size: 5MB</p>
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="leaderName" className="font-orbitron text-hacker-text">Team Leader Name</Label>
+              <Input
+                id="leaderName"
+                placeholder="Enter your full name"
+                required
+                value={formData.leaderName}
+                onChange={handleInputChange}
+                className="input-hacker"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="email" className="font-orbitron text-hacker-text">Email</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-neon-red cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-hacker-dark border-neon-red text-hacker-text">
+                      <p className="text-xs">Confirmation will be sent to this email</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              
-              <div className="pt-3 md:pt-4">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="w-full bg-neon-blue hover:bg-neon-blue/80 text-dark border-none py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2 transition-colors duration-300"
-                >
-                  {isSubmitting ? 'Processing...' : (
-                    <>
-                      Create Team
-                      <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              <div className="text-center text-xs text-light/60 flex items-center justify-center gap-1">
-                <Smartphone className="h-3 w-3" />
-                <span>Mobile-friendly form</span>
-              </div>
-            </form>
-          </>
-        )}
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                required
+                value={formData.email}
+                onChange={handleInputChange}
+                className="input-hacker"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="font-orbitron text-hacker-text">Phone Number</Label>
+              <Input
+                id="phone"
+                placeholder="Enter your phone number"
+                required
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="input-hacker"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="college" className="font-orbitron text-hacker-text">Select College</Label>
+              <Select onValueChange={(value) => handleSelectChange('college', value)}>
+                <SelectTrigger className="input-hacker">
+                  <SelectValue placeholder="Select your college" />
+                </SelectTrigger>
+                <SelectContent className="bg-hacker-dark border-neon-red">
+                  <SelectItem value="mit">MIT</SelectItem>
+                  <SelectItem value="stanford">Stanford University</SelectItem>
+                  <SelectItem value="harvard">Harvard University</SelectItem>
+                  <SelectItem value="caltech">Caltech</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="members" className="font-orbitron text-hacker-text">Number of Members</Label>
+              <Select onValueChange={(value) => handleSelectChange('memberCount', value)}>
+                <SelectTrigger className="input-hacker">
+                  <SelectValue placeholder="Select team size" />
+                </SelectTrigger>
+                <SelectContent className="bg-hacker-dark border-neon-red">
+                  <SelectItem value="2">2 Members</SelectItem>
+                  <SelectItem value="3">3 Members</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="bg-hacker-terminal p-4 rounded-md border border-neon-red border-opacity-20">
+            <div className="flex items-center mb-3">
+              <CreditCard className="h-5 w-5 mr-2 text-neon-red" />
+              <h4 className="font-orbitron text-neon-red">Payment Details</h4>
+            </div>
+            <p className="text-sm text-hacker-text/80 mb-4">
+              Registration fee: <span className="text-neon-red font-bold">₹50</span> per team (non-refundable)
+            </p>
+            <div className="text-xs text-hacker-text/60">
+              Payments processed securely via Razorpay. You will be redirected to the payment gateway after clicking "Register Team".
+            </div>
+          </div>
+          
+          <div className="pt-3 md:pt-4">
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isProcessingPayment}
+              className="btn-glitch w-full py-4 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
+            >
+              {isSubmitting || isProcessingPayment ? (
+                <>Processing...</>
+              ) : (
+                <>
+                  Register Team
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
+                </>
+              )}
+            </Button>
+          </div>
+          
+          <div className="text-center text-xs text-hacker-text/60 flex items-center justify-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            <span>By registering, you agree to the Terms & Conditions</span>
+          </div>
+        </form>
       </div>
     );
   }
   
   // Join Team form
   return (
-    <div className="card-neon-green p-5 md:p-8 relative overflow-hidden">
+    <div className="card-hacker relative overflow-hidden">
+      {/* Confetti container */}
+      <div id="confetti-container" className="absolute inset-0 pointer-events-none z-50"></div>
+    
       {showSuccessAnimation && (
-        <div className="absolute inset-0 flex items-center justify-center bg-dark/80 z-20 animate-fade-in">
-          <div className="text-center">
-            <Check className="h-16 w-16 text-neon-green mx-auto mb-4" />
-            <p className="font-orbitron text-glow-green text-xl">Team Joined!</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-hacker-bg/90 z-20 animate-fade-in">
+          <div className="text-center p-8 max-w-md">
+            <div className="terminal-window mb-6">
+              <div className="terminal-header">
+                <span className="font-orbitron text-neon-red">Team Access</span>
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                </div>
+              </div>
+              <div className="terminal-text space-y-2">
+                <div>$ Validating team code...OK</div>
+                <div>$ Checking team capacity...OK</div>
+                <div>$ Adding member to team...OK</div>
+                <div>$ Sending notifications...OK</div>
+                <div className="text-neon-red font-bold">$ TEAM JOIN SUCCESSFUL</div>
+              </div>
+            </div>
+            
+            <h3 className="text-2xl font-orbitron mb-4 text-glow-red">Welcome to the Team!</h3>
+            <p className="text-hacker-text mb-4">You've successfully joined the team</p>
+            
+            <div className="mb-6">
+              <p className="text-xs text-hacker-text/70">
+                A confirmation has been sent to your email with all details.
+                The team leader has also been notified.
+              </p>
+            </div>
+            
+            <Button 
+              onClick={() => {
+                setShowSuccessAnimation(false);
+                setJoinTeamCode('');
+                setValidationState({ isValid: false, message: '', team: null });
+                setFormData({
+                  teamName: '',
+                  leaderName: '',
+                  email: '',
+                  phone: '',
+                  college: '',
+                  memberCount: '',
+                  participantName: '',
+                  participantEmail: '',
+                  participantPhone: '',
+                  participantCollege: '',
+                });
+              }} 
+              className="btn-glitch w-full py-3 font-orbitron"
+            >
+              Join Another Team
+            </Button>
           </div>
         </div>
       )}
     
-      <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-green text-center">Join Existing Team</h3>
+      <h3 className="text-xl md:text-2xl font-orbitron mb-5 md:mb-6 text-glow-red text-center">Join Existing Team</h3>
       
       <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="space-y-2">
-            <Label htmlFor="participantName" className="font-orbitron text-light">Participant Name</Label>
+            <Label htmlFor="participantName" className="font-orbitron text-hacker-text">Participant Name</Label>
             <Input
               id="participantName"
               placeholder="Enter your full name"
               required
               value={formData.participantName}
               onChange={handleInputChange}
-              className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
+              className="input-hacker"
             />
           </div>
           
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="participantEmail" className="font-orbitron text-light">Email</Label>
+              <Label htmlFor="participantEmail" className="font-orbitron text-hacker-text">Email</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-neon-green cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-neon-red cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent className="bg-dark/90 border-neon-green text-light">
+                  <TooltipContent className="bg-hacker-dark border-neon-red text-hacker-text">
                     <p className="text-xs">You'll receive team information on this email</p>
                   </TooltipContent>
                 </Tooltip>
@@ -442,31 +642,31 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
               required
               value={formData.participantEmail}
               onChange={handleInputChange}
-              className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
+              className="input-hacker"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="participantPhone" className="font-orbitron text-light">Phone Number</Label>
+            <Label htmlFor="participantPhone" className="font-orbitron text-hacker-text">Phone Number</Label>
             <Input
               id="participantPhone"
               placeholder="Enter your phone number"
               required
               value={formData.participantPhone}
               onChange={handleInputChange}
-              className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
+              className="input-hacker"
             />
           </div>
           
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="team-code" className="font-orbitron text-light">Team Code</Label>
+              <Label htmlFor="team-code" className="font-orbitron text-hacker-text">Team Code</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-neon-green cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-neon-red cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent className="bg-dark/90 border-neon-green text-light">
+                  <TooltipContent className="bg-hacker-dark border-neon-red text-hacker-text">
                     <p className="text-xs">Ask your team leader for this code</p>
                   </TooltipContent>
                 </Tooltip>
@@ -478,8 +678,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
               required
               value={joinTeamCode}
               onChange={(e) => validateTeamCode(e.target.value)}
-              className={`bg-dark/50 border text-light focus:border-neon-green ${
-                !joinTeamCode ? 'border-neon-green border-opacity-50' : 
+              className={`input-hacker ${
+                !joinTeamCode ? '' : 
                 validationState.isValid ? 'border-neon-green border-opacity-80' : 'border-red-500 border-opacity-80'
               }`}
             />
@@ -491,10 +691,10 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
             
             {/* Team members auto-fill */}
             {validationState.isValid && validationState.team && (
-              <div className="mt-3 bg-dark/40 border border-neon-green border-opacity-30 rounded-md p-3">
+              <div className="mt-3 bg-hacker-dark p-3 rounded-md border border-neon-green border-opacity-30">
                 <h5 className="text-neon-green text-xs font-orbitron mb-2">Current Team Members:</h5>
-                <ul className="text-light/80 text-xs space-y-1">
-                  {validationState.team.members.map((member, index) => (
+                <ul className="text-hacker-text/80 text-xs space-y-1">
+                  {validationState.team?.members?.map((member: any, index: number) => (
                     <li key={index} className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-neon-green"></span>
                       {member.name}
@@ -510,14 +710,14 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
           </div>
           
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="participantCollege" className="font-orbitron text-light">College Name</Label>
+            <Label htmlFor="participantCollege" className="font-orbitron text-hacker-text">College Name</Label>
             <Input
               id="participantCollege"
               placeholder="Enter your college name"
               required
               value={formData.participantCollege}
               onChange={handleInputChange}
-              className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
+              className="input-hacker"
             />
           </div>
         </div>
@@ -526,7 +726,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
           <Button 
             type="submit" 
             disabled={isSubmitting || (joinTeamCode && !validationState.isValid)}
-            className="w-full bg-neon-green hover:bg-neon-green/80 text-dark border-none py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2 transition-colors duration-300"
+            className="btn-glitch w-full py-4 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
           >
             {isSubmitting ? 'Processing...' : (
               <>
@@ -537,7 +737,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistr
           </Button>
         </div>
         
-        <div className="text-center text-xs text-light/60 flex items-center justify-center gap-1">
+        <div className="text-center text-xs text-hacker-text/60 flex items-center justify-center gap-1">
           <Mail className="h-3 w-3" />
           <span>Confirmation will be sent via email</span>
         </div>
