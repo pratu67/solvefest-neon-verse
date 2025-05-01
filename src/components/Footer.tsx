@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Mail, Instagram, Facebook, Linkedin, Twitter, Brain } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -82,11 +83,11 @@ const Footer = () => {
             © 2025 SolveFest. All rights reserved.
           </p>
           <div className="flex space-x-6">
+            <Link to="/terms" className="text-light/50 text-sm hover:text-neon-blue transition-colors duration-300">
+              Terms of Service
+            </Link>
             <a href="#" className="text-light/50 text-sm hover:text-neon-blue transition-colors duration-300">
               Privacy Policy
-            </a>
-            <a href="#" className="text-light/50 text-sm hover:text-neon-blue transition-colors duration-300">
-              Terms of Service
             </a>
           </div>
         </div>

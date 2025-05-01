@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Mail, Users, Clock, Info, CreditCard } from 'lucide-react';
 import RegistrationForm from './RegistrationForm';
@@ -75,7 +74,7 @@ const RegistrationPanel = () => {
           {Array.from({ length: 15 }).map((_, i) => (
             <div 
               key={i} 
-              className="text-xs font-tech-mono text-neon-red opacity-50" 
+              className="text-xs font-tech-mono text-neon-red opacity-50 animate-binary-rain" 
               style={{ 
                 position: 'absolute', 
                 left: `${Math.random() * 100}%`, 
@@ -83,7 +82,6 @@ const RegistrationPanel = () => {
                 animationDuration: `${10 + Math.random() * 15}s`,
                 animationDelay: `${Math.random() * 5}s`
               }}
-              className="animate-binary-rain"
             >
               {Array.from({ length: 20 }).map(() => Math.round(Math.random())).join('')}
             </div>
