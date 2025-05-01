@@ -32,7 +32,7 @@ const Index = () => {
   }, []);
   
   return (
-    <div className="min-h-screen bg-dark text-light">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
       <Header />
       <HeroSection />
       <CountdownTimer />

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Mail, Users, Clock, Info, CreditCard } from 'lucide-react';
 import RegistrationForm from './RegistrationForm';
@@ -67,58 +68,37 @@ const RegistrationPanel = () => {
   };
 
   return (
-    <section id="register" className="py-20 bg-gradient-to-b from-hacker-bg to-hacker-dark relative overflow-hidden">
-      {/* Binary code background animation */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
-        <div className="flex flex-wrap">
-          {Array.from({ length: 15 }).map((_, i) => (
-            <div 
-              key={i} 
-              className="text-xs font-tech-mono text-neon-red opacity-50 animate-binary-rain" 
-              style={{ 
-                position: 'absolute', 
-                left: `${Math.random() * 100}%`, 
-                top: -20,
-                animationDuration: `${10 + Math.random() * 15}s`,
-                animationDelay: `${Math.random() * 5}s`
-              }}
-            >
-              {Array.from({ length: 20 }).map(() => Math.round(Math.random())).join('')}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 relative z-10">
+    <section id="register" className="py-20 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4">
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-orbitron mb-3 md:mb-4">
-            <span className="text-glow-red">Register</span> Now
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 md:mb-4">
+            <span className="text-primary">Register</span> Now
           </h2>
-          <p className="text-hacker-text/80 max-w-2xl mx-auto text-sm md:text-base">
+          <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
             Secure your spot in the most anticipated coding event of 2025. Early registration ends February 1st.
           </p>
           
           {/* Live registration counter */}
           <div className="flex justify-center items-center gap-4 md:gap-8 mt-4 md:mt-6">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 md:h-5 md:w-5 text-neon-red" />
-              <span className="text-hacker-text/90 text-sm md:text-base">
-                <span className="font-orbitron text-neon-red">{registrationCount.teams}</span> Teams
+              <Users className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              <span className="text-slate-700 dark:text-slate-300 text-sm md:text-base">
+                <span className="font-bold text-primary">{registrationCount.teams}</span> Teams
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 md:h-5 md:w-5 text-neon-green" />
-              <span className="text-hacker-text/90 text-sm md:text-base">
-                <span className="font-orbitron text-neon-green">{registrationCount.participants}</span> Participants
+              <Users className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+              <span className="text-slate-700 dark:text-slate-300 text-sm md:text-base">
+                <span className="font-bold text-green-500">{registrationCount.participants}</span> Participants
               </span>
             </div>
           </div>
           
           {/* Deadline timer */}
           <div className="mt-4 flex justify-center items-center gap-2">
-            <Clock className="h-4 w-4 md:h-5 md:w-5 text-neon-red" />
-            <span className="text-hacker-text/90 text-sm md:text-base">
-              Registrations close in: <span className="font-orbitron text-neon-red">
+            <Clock className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <span className="text-slate-700 dark:text-slate-300 text-sm md:text-base">
+              Registrations close in: <span className="font-bold text-primary">
                 {deadlineTime.days}d {deadlineTime.hours}h {deadlineTime.minutes}m
               </span>
             </span>
@@ -126,9 +106,9 @@ const RegistrationPanel = () => {
           
           {/* Payment info */}
           <div className="mt-4 flex justify-center items-center gap-2">
-            <CreditCard className="h-4 w-4 md:h-5 md:w-5 text-neon-red" />
-            <span className="text-hacker-text/90 text-sm md:text-base">
-              Registration fee: <span className="font-orbitron text-neon-red">₹50</span> per team
+            <CreditCard className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <span className="text-slate-700 dark:text-slate-300 text-sm md:text-base">
+              Registration fee: <span className="font-bold text-primary">₹50</span> per team
             </span>
           </div>
         </div>
@@ -136,16 +116,16 @@ const RegistrationPanel = () => {
         <div className="max-w-4xl mx-auto">
           <Tabs defaultValue="create" className="w-full">
             <TabsList className="grid grid-cols-2 mb-8">
-              <TabsTrigger value="create" className="tab-hacker">Create Team</TabsTrigger>
-              <TabsTrigger value="join" className="tab-hacker">Join Team</TabsTrigger>
+              <TabsTrigger value="create">Create Team</TabsTrigger>
+              <TabsTrigger value="join">Join Team</TabsTrigger>
             </TabsList>
-            <TabsContent value="create" className="animate-fade-in">
+            <TabsContent value="create" className="fade-in">
               <RegistrationForm 
                 formType="create" 
                 onRegistrationComplete={handleRegistrationComplete}
               />
             </TabsContent>
-            <TabsContent value="join" className="animate-fade-in">
+            <TabsContent value="join" className="fade-in">
               <RegistrationForm 
                 formType="join" 
                 onRegistrationComplete={handleRegistrationComplete}
