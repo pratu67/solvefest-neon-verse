@@ -11,25 +11,50 @@ import { ChevronRight, Info, Mail, Check, AlertCircle, QrCode, Smartphone } from
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { 
+  createTeam,
+  joinTeam, 
+  checkTeamCode,
+  sendEmail 
+} from '@/services/mockDatabase';
 
 interface RegistrationFormProps {
   formType: 'create' | 'join';
+  onRegistrationComplete?: () => void;
 }
 
-// Mock database of existing teams and codes
-const mockTeams = {
-  'TM12A4B5': { name: 'Byte Busters', members: ['John Doe'], college: 'MIT', maxMembers: 3 },
-  'TM78X9Z0': { name: 'Code Wizards', members: ['Jane Smith', 'Alex Chen'], college: 'Stanford', maxMembers: 3 },
-  'TM45P6Q7': { name: 'Logic Lords', members: ['Sam Wilson', 'Amy Lee', 'Tom Grant'], college: 'Caltech', maxMembers: 3 }
-};
-
-const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
+const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType, onRegistrationComplete }) => {
   const { toast } = useToast();
   const [teamCode, setTeamCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationState, setValidationState] = useState({ isValid: false, message: '', team: null });
   const [joinTeamCode, setJoinTeamCode] = useState('');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  
+  // Form states
+  const [formData, setFormData] = useState({
+    teamName: '',
+    leaderName: '',
+    email: '',
+    phone: '',
+    college: '',
+    memberCount: '',
+    participantName: '',
+    participantEmail: '',
+    participantPhone: '',
+    participantCollege: '',
+  });
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  // Handle select changes
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const validateTeamCode = (code: string) => {
     // Trim whitespace
@@ -41,45 +66,36 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
       return;
     }
     
-    // Check if team exists
-    if (mockTeams[code]) {
-      const team = mockTeams[code];
-      
-      // Check if team is full
-      if (team.members.length >= team.maxMembers) {
-        setValidationState({ 
-          isValid: false, 
-          message: 'This team is full (maximum 3 members).', 
-          team: null 
-        });
-      } else {
-        setValidationState({ 
-          isValid: true, 
-          message: `Team found: ${team.name} (${team.members.length}/${team.maxMembers} members)`, 
-          team: team 
-        });
-      }
-    } else {
-      setValidationState({ 
-        isValid: false, 
-        message: 'Invalid team code. Please check and try again.', 
-        team: null 
-      });
-    }
+    // Check if team exists using mock database
+    const result = checkTeamCode(code);
+    setValidationState(result as any); // TypeScript type coercion
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Form data collection would happen here in a real application
-    const formData = new FormData(e.currentTarget);
-    
-    setTimeout(() => {
+    try {
       if (formType === 'create') {
-        // Generate a random team code
-        const generatedTeamCode = 'TM' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        setTeamCode(generatedTeamCode);
+        // Create team using mock database
+        const newTeam = createTeam({
+          teamName: formData.teamName,
+          leaderName: formData.leaderName,
+          leaderEmail: formData.email,
+          leaderPhone: formData.phone,
+          college: formData.college,
+          paymentProof: 'payment-screenshot.jpg' // In a real app, this would be the uploaded file
+        });
+        
+        // Set the generated team code
+        setTeamCode(newTeam.teamCode);
+        
+        // Simulate email sending
+        await sendEmail(
+          formData.email,
+          'Team Registration Successful',
+          `Your team ${formData.teamName} has been registered successfully. Your team code is ${newTeam.teamCode}.`
+        );
         
         // Show success animation
         setShowSuccessAnimation(true);
@@ -87,17 +103,57 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
         
         toast({
           title: "Team Created Successfully!",
-          description: `Your team code is ${generatedTeamCode}. A confirmation email has been sent.`,
+          description: `Your team code is ${newTeam.teamCode}. A confirmation email has been sent.`,
         });
-      } else if (formType === 'join' && validationState.isValid) {
-        // Show success animation
-        setShowSuccessAnimation(true);
-        setTimeout(() => setShowSuccessAnimation(false), 1500);
         
-        toast({
-          title: "Team Joined Successfully!",
-          description: "You have joined the team. A confirmation email has been sent to you and the team leader.",
+        // Notify parent component
+        if (onRegistrationComplete) onRegistrationComplete();
+        
+      } else if (formType === 'join' && validationState.isValid) {
+        // Join team using mock database
+        const result = joinTeam(joinTeamCode, {
+          name: formData.participantName,
+          email: formData.participantEmail,
+          phone: formData.participantPhone,
+          college: formData.participantCollege
         });
+        
+        if (result.success) {
+          // Simulate email sending
+          await sendEmail(
+            formData.participantEmail,
+            'Team Join Successful',
+            `You have successfully joined the team ${result.team?.teamName}.`
+          );
+          
+          // Also notify team leader
+          if (result.team) {
+            await sendEmail(
+              result.team.leaderEmail,
+              'New Team Member Alert',
+              `${formData.participantName} has joined your team ${result.team.teamName}.`
+            );
+          }
+          
+          // Show success animation
+          setShowSuccessAnimation(true);
+          setTimeout(() => setShowSuccessAnimation(false), 1500);
+          
+          toast({
+            title: "Team Joined Successfully!",
+            description: "You have joined the team. A confirmation email has been sent to you and the team leader.",
+          });
+          
+          // Notify parent component
+          if (onRegistrationComplete) onRegistrationComplete();
+          
+        } else {
+          toast({
+            title: "Error",
+            description: result.message,
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Error",
@@ -105,8 +161,15 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   if (formType === 'create') {
@@ -144,7 +207,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
             <Button 
               onClick={() => setTeamCode(null)} 
               variant="outline" 
-              className="btn-neon-green"
+              className="bg-neon-green hover:bg-neon-green/80 text-dark border-none transition-colors duration-300"
             >
               Create Another Team
             </Button>
@@ -179,7 +242,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="team-name" className="font-orbitron text-light">Team Name</Label>
+                    <Label htmlFor="teamName" className="font-orbitron text-light">Team Name</Label>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -192,19 +255,23 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                     </TooltipProvider>
                   </div>
                   <Input
-                    id="team-name"
+                    id="teamName"
                     placeholder="Enter your team name"
                     required
+                    value={formData.teamName}
+                    onChange={handleInputChange}
                     className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="leader-name" className="font-orbitron text-light">Team Leader Name</Label>
+                  <Label htmlFor="leaderName" className="font-orbitron text-light">Team Leader Name</Label>
                   <Input
-                    id="leader-name"
+                    id="leaderName"
                     placeholder="Enter your full name"
                     required
+                    value={formData.leaderName}
+                    onChange={handleInputChange}
                     className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
                   />
                 </div>
@@ -228,6 +295,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                     type="email"
                     placeholder="Enter your email"
                     required
+                    value={formData.email}
+                    onChange={handleInputChange}
                     className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
                   />
                 </div>
@@ -238,13 +307,15 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                     id="phone"
                     placeholder="Enter your phone number"
                     required
+                    value={formData.phone}
+                    onChange={handleInputChange}
                     className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue"
                   />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="college" className="font-orbitron text-light">Select College</Label>
-                  <Select>
+                  <Select onValueChange={(value) => handleSelectChange('college', value)}>
                     <SelectTrigger className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue">
                       <SelectValue placeholder="Select your college" />
                     </SelectTrigger>
@@ -260,7 +331,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="members" className="font-orbitron text-light">Number of Members</Label>
-                  <Select>
+                  <Select onValueChange={(value) => handleSelectChange('memberCount', value)}>
                     <SelectTrigger className="bg-dark/50 border border-neon-blue border-opacity-50 text-light focus:border-neon-blue">
                       <SelectValue placeholder="Select team size" />
                     </SelectTrigger>
@@ -300,8 +371,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                 <Button 
                   type="submit" 
                   disabled={isSubmitting}
-                  variant="outline"
-                  className="w-full btn-neon-blue py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
+                  className="w-full bg-neon-blue hover:bg-neon-blue/80 text-dark border-none py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2 transition-colors duration-300"
                 >
                   {isSubmitting ? 'Processing...' : (
                     <>
@@ -340,18 +410,20 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
       <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="space-y-2">
-            <Label htmlFor="participant-name" className="font-orbitron text-light">Participant Name</Label>
+            <Label htmlFor="participantName" className="font-orbitron text-light">Participant Name</Label>
             <Input
-              id="participant-name"
+              id="participantName"
               placeholder="Enter your full name"
               required
+              value={formData.participantName}
+              onChange={handleInputChange}
               className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
             />
           </div>
           
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="email-join" className="font-orbitron text-light">Email</Label>
+              <Label htmlFor="participantEmail" className="font-orbitron text-light">Email</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -364,20 +436,24 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
               </TooltipProvider>
             </div>
             <Input
-              id="email-join"
+              id="participantEmail"
               type="email"
               placeholder="Enter your email"
               required
+              value={formData.participantEmail}
+              onChange={handleInputChange}
               className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="phone-join" className="font-orbitron text-light">Phone Number</Label>
+            <Label htmlFor="participantPhone" className="font-orbitron text-light">Phone Number</Label>
             <Input
-              id="phone-join"
+              id="participantPhone"
               placeholder="Enter your phone number"
               required
+              value={formData.participantPhone}
+              onChange={handleInputChange}
               className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
             />
           </div>
@@ -398,7 +474,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
             </div>
             <Input
               id="team-code"
-              placeholder="Enter team code"
+              placeholder="Enter team code (e.g., SF25-ABCD)"
               required
               value={joinTeamCode}
               onChange={(e) => validateTeamCode(e.target.value)}
@@ -421,7 +497,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
                   {validationState.team.members.map((member, index) => (
                     <li key={index} className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-neon-green"></span>
-                      {member}
+                      {member.name}
                     </li>
                   ))}
                   <li className="flex items-center gap-2 text-neon-green">
@@ -434,11 +510,13 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
           </div>
           
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="college-join" className="font-orbitron text-light">College Name</Label>
+            <Label htmlFor="participantCollege" className="font-orbitron text-light">College Name</Label>
             <Input
-              id="college-join"
+              id="participantCollege"
               placeholder="Enter your college name"
               required
+              value={formData.participantCollege}
+              onChange={handleInputChange}
               className="bg-dark/50 border border-neon-green border-opacity-50 text-light focus:border-neon-green"
             />
           </div>
@@ -448,8 +526,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ formType }) => {
           <Button 
             type="submit" 
             disabled={isSubmitting || (joinTeamCode && !validationState.isValid)}
-            variant="outline"
-            className="w-full btn-neon-green py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2"
+            className="w-full bg-neon-green hover:bg-neon-green/80 text-dark border-none py-4 md:py-6 font-orbitron text-base md:text-lg flex items-center justify-center gap-2 transition-colors duration-300"
           >
             {isSubmitting ? 'Processing...' : (
               <>

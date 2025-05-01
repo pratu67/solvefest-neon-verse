@@ -5,6 +5,7 @@ import RegistrationForm from './RegistrationForm';
 import { Button } from './ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getTeamStats } from '@/services/mockDatabase';
 
 const RegistrationPanel = () => {
   const [formType, setFormType] = useState<'default' | 'create' | 'join'>('default');
@@ -19,8 +20,19 @@ const RegistrationPanel = () => {
   });
   const isMobile = useIsMobile();
 
+  // Update registration count based on mock database
+  const updateRegistrationCount = () => {
+    const stats = getTeamStats();
+    setRegistrationCount({
+      teams: stats.totalTeams,
+      participants: stats.totalParticipants
+    });
+  };
+
   // Update countdown timer every minute
   useEffect(() => {
+    updateRegistrationCount(); // Initial count
+    
     const timer = setInterval(() => {
       setDeadlineTime(prev => {
         let { days, hours, minutes } = prev;
@@ -49,6 +61,13 @@ const RegistrationPanel = () => {
     
     return () => clearInterval(timer);
   }, []);
+
+  // Handle registration completion
+  const handleRegistrationComplete = () => {
+    updateRegistrationCount();
+    // In a real app with proper backend, this would be handled by
+    // a real-time subscription or a polling mechanism
+  };
 
   return (
     <section id="register" className="py-20 bg-gradient-to-b from-dark to-dark/90 relative overflow-hidden">
@@ -102,8 +121,7 @@ const RegistrationPanel = () => {
               </p>
               <Button 
                 onClick={() => setFormType('create')}
-                className="btn-neon-blue px-6 md:px-8 py-2 md:py-3 rounded-md font-orbitron text-base md:text-lg"
-                variant="outline"
+                className="bg-neon-blue hover:bg-neon-blue/80 text-dark border-none px-6 md:px-8 py-2 md:py-3 rounded-md font-orbitron text-base md:text-lg transition-colors duration-300"
               >
                 Create Team
               </Button>
@@ -116,8 +134,7 @@ const RegistrationPanel = () => {
               </p>
               <Button 
                 onClick={() => setFormType('join')}
-                className="btn-neon-green px-6 md:px-8 py-2 md:py-3 rounded-md font-orbitron text-base md:text-lg"
-                variant="outline"
+                className="bg-neon-green hover:bg-neon-green/80 text-dark border-none px-6 md:px-8 py-2 md:py-3 rounded-md font-orbitron text-base md:text-lg transition-colors duration-300"
               >
                 Join Team
               </Button>
@@ -128,13 +145,15 @@ const RegistrationPanel = () => {
             <div className="flex justify-center mb-6 md:mb-8">
               <Button 
                 onClick={() => setFormType('default')}
-                className="btn-neon-purple px-4 md:px-6 py-2 rounded-md font-orbitron text-xs md:text-sm flex items-center gap-2"
-                variant="outline"
+                className="bg-neon-purple hover:bg-neon-purple/80 text-dark border-none px-4 md:px-6 py-2 rounded-md font-orbitron text-xs md:text-sm flex items-center gap-2 transition-colors duration-300"
               >
                 ← Back to Options
               </Button>
             </div>
-            <RegistrationForm formType={formType} />
+            <RegistrationForm 
+              formType={formType} 
+              onRegistrationComplete={handleRegistrationComplete}
+            />
           </div>
         )}
       </div>
